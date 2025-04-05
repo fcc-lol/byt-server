@@ -146,6 +146,20 @@ app.get("/api/birthdays", validateApiKey, async (req, res) => {
   res.json(data);
 });
 
+app.get("/api/rebrickable/minifigs/:id", validateApiKey, async (req, res) => {
+  const response = await fetch(
+    `https://rebrickable.com/api/v3/lego/minifigs/${req.params.id}/`,
+    {
+      headers: {
+        Accept: "application/json",
+        Authorization: `key ${process.env.REBRICKABLE_API_KEY}`
+      }
+    }
+  );
+  const data = await response.json();
+  res.json(data);
+});
+
 // Start the server
 httpServer.listen(port, () => {
   console.log(`Server is running on port ${port}`);
