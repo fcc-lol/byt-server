@@ -160,6 +160,29 @@ app.get("/api/rebrickable/minifigs/:id", validateApiKey, async (req, res) => {
   res.json(data);
 });
 
+app.get("/api/this-or-that/random-pair", validateApiKey, async (req, res) => {
+  try {
+    const response = await fetch(
+      `https://this-or-that-machine-server.noshado.ws/get-random-pair-votes?key=${process.env.THIS_OR_THAT_MACHINE_SERVER_API_KEY}`
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `This or That API responded with status: ${response.status}`
+      );
+    }
+
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error("Error fetching This or That data:", error);
+    res.status(500).json({
+      error: "Failed to fetch This or That data",
+      message: error.message
+    });
+  }
+});
+
 // Start the server
 httpServer.listen(port, () => {
   console.log(`Server is running on port ${port}`);
