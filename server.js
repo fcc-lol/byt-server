@@ -163,7 +163,7 @@ app.get("/api/rebrickable/minifigs/:id", validateApiKey, async (req, res) => {
 app.get("/api/this-or-that/random-pair", validateApiKey, async (req, res) => {
   try {
     const response = await fetch(
-      `https://this-or-that-machine-server.noshado.ws/get-random-pair-votes?key=${process.env.THIS_OR_THAT_MACHINE_SERVER_API_KEY}`
+      `https://this-or-that-machine-server.noshado.ws/votes/get-random-pair-votes?key=${process.env.THIS_OR_THAT_MACHINE_SERVER_API_KEY}`
     );
 
     if (!response.ok) {
