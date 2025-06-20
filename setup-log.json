@@ -1,0 +1,9 @@
+{
+  "service_id": "byt-server",
+  "service_name": "Byt Server",
+  "domain": "https://byt-server.fcc.lol",
+  "host": "localhost",
+  "port": "3102",
+  "author": "fcc",
+  "created_on": "Fri Jun 20 14:54:56 UTC 2025"
+}
