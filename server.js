@@ -140,7 +140,7 @@ app.get("/api/flights/:type", validateApiKey, async (req, res) => {
 
 app.get("/api/birthdays", validateApiKey, async (req, res) => {
   const response = await fetch(
-    `https://birthday-calendar-server-production.up.railway.app/?fccApiKey=${process.env.BIRTHDAY_CALENDAR_SERVER_API_KEY}`
+    `https://birthday-calendar-server.fcc.lol/?fccApiKey=${process.env.BIRTHDAY_CALENDAR_SERVER_API_KEY}`
   );
   const data = await response.json();
   res.json(data);
