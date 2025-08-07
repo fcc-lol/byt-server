@@ -183,6 +183,88 @@ app.get("/api/this-or-that/random-pair", validateApiKey, async (req, res) => {
   }
 });
 
+app.get(
+  "/api/literary-clock/:hours/:minutes",
+  validateApiKey,
+  async (req, res) => {
+    try {
+      const hours = parseInt(req.params.hours, 10);
+      const minutes = parseInt(req.params.minutes, 10);
+
+      if (
+        Number.isNaN(hours) ||
+        Number.isNaN(minutes) ||
+        hours < 0 ||
+        hours > 23 ||
+        minutes < 0 ||
+        minutes > 59
+      ) {
+        return res.status(400).json({
+          error: "Invalid time",
+          message: "Hours must be 0-23 and minutes must be 0-59"
+        });
+      }
+
+      const paddedHours = String(hours).padStart(2, "0");
+      const paddedMinutes = String(minutes).padStart(2, "0");
+
+      const url = `https://literature-clock.jenevoldsen.com/times/${paddedHours}_${paddedMinutes}.json`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(
+          `Literary clock responded with status: ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+
+      if (!Array.isArray(data) || data.length === 0) {
+        return res.status(502).json({
+          error: "Upstream response unexpected",
+          message: "Expected a non-empty array of quotes"
+        });
+      }
+
+      const randomIndex = Math.floor(Math.random() * data.length);
+      const picked = data[randomIndex];
+
+      const expectedFields = [
+        "quote_first",
+        "quote_last",
+        "quote_time_case",
+        "title",
+        "author"
+      ];
+
+      const hasAllFields = expectedFields.every((k) => k in picked);
+      if (!hasAllFields) {
+        return res.status(502).json({
+          error: "Upstream response shape mismatch",
+          message:
+            "Expected fields: quote_first, quote_last, quote_time_case, title, author"
+        });
+      }
+
+      const result = {
+        quote_first: picked.quote_first,
+        quote_last: picked.quote_last,
+        quote_time_case: picked.quote_time_case,
+        title: picked.title,
+        author: picked.author
+      };
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching literary clock data:", error);
+      res.status(500).json({
+        error: "Failed to fetch literary clock data",
+        message: error.message
+      });
+    }
+  }
+);
+
 // Start the server
 httpServer.listen(port, () => {
   console.log(`Server is running on port ${port}`);
