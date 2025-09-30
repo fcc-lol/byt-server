@@ -29,8 +29,6 @@ const io = new Server(httpServer, {
 
 // Socket.IO connection handler
 io.on("connection", (socket) => {
-  console.log("New client connected:", socket.id);
-
   // Send welcome message
   socket.emit("connection_status", {
     status: "connected",
@@ -41,7 +39,6 @@ io.on("connection", (socket) => {
   // Handle incoming messages
   socket.on("message", (data) => {
     try {
-      console.log("Received:", data);
       // Broadcast message to all connected clients
       io.emit("message", data);
     } catch (error) {
@@ -54,9 +51,7 @@ io.on("connection", (socket) => {
   });
 
   // Handle client disconnection
-  socket.on("disconnect", (reason) => {
-    console.log(`Client ${socket.id} disconnected:`, reason);
-  });
+  socket.on("disconnect", (reason) => {});
 
   // Handle errors
   socket.on("error", (error) => {
@@ -158,6 +153,191 @@ app.get("/api/rebrickable/minifigs/:id", validateApiKey, async (req, res) => {
   );
   const data = await response.json();
   res.json(data);
+});
+
+app.get("/api/birds-sighted-nearby", validateApiKey, async (req, res) => {
+  try {
+    const locationName = "Gantry State Park";
+    const lat = 40.747681; // Gantry State Park
+    const lng = -73.956555; // Gantry State Park
+    const dist = 5; // km
+
+    if (!process.env.EBIRD_API_KEY) {
+      return res.status(500).json({
+        error: "Server not configured",
+        message: "EBIRD_API_KEY is not set on the server"
+      });
+    }
+
+    const params = new URLSearchParams();
+    params.set("lat", String(lat));
+    params.set("lng", String(lng));
+    params.set("dist", String(dist));
+    params.set("maxResults", "100");
+
+    const url = `https://api.ebird.org/v2/data/obs/geo/recent/notable?${params.toString()}`;
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "x-ebirdapitoken": process.env.EBIRD_API_KEY
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`eBird API responded with status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!Array.isArray(data)) {
+      return res.status(502).json({
+        error: "Upstream response unexpected",
+        message: "Expected an array of observations"
+      });
+    }
+
+    const speciesByCode = new Map();
+    for (const obs of data) {
+      const code =
+        obs.speciesCode || `${obs.comName || "Unknown"}|${obs.sciName || ""}`;
+      const commonName = obs.comName || "Unknown";
+      const scientificName = obs.sciName || null;
+      const count = Number.isFinite(obs.howMany) ? obs.howMany : 1;
+      const obsTime = obs.obsDt ? Date.parse(obs.obsDt) : NaN;
+
+      const current = speciesByCode.get(code) || {
+        code,
+        commonName,
+        scientificName,
+        observationCount: 0,
+        individualCount: 0,
+        latestObsDt: 0,
+        earliestObsDt: Number.POSITIVE_INFINITY
+      };
+
+      current.observationCount += 1;
+      current.individualCount += count;
+      if (Number.isFinite(obsTime) && obsTime > current.latestObsDt)
+        current.latestObsDt = obsTime;
+      if (Number.isFinite(obsTime) && obsTime < current.earliestObsDt)
+        current.earliestObsDt = obsTime;
+
+      speciesByCode.set(code, current);
+    }
+
+    const aggregates = Array.from(speciesByCode.values());
+    // Sort by observation count descending, then by individual count, then by most recent observation
+    aggregates.sort((a, b) => {
+      if (b.observationCount !== a.observationCount)
+        return b.observationCount - a.observationCount;
+      if (b.individualCount !== a.individualCount)
+        return b.individualCount - a.individualCount;
+      return b.latestObsDt - a.latestObsDt;
+    });
+    const totalSightings = data.length;
+    const top5Raw = aggregates.slice(0, 5);
+
+    const earliestTopMs = top5Raw.reduce(
+      (min, s) => Math.min(min, s.earliestObsDt),
+      Number.POSITIVE_INFINITY
+    );
+
+    const sinceDateTime = Number.isFinite(earliestTopMs)
+      ? new Date(earliestTopMs).toLocaleString("en-US", {
+          timeZone: "America/New_York"
+        })
+      : null;
+
+    const hoursSinceSinceDate = Number.isFinite(earliestTopMs)
+      ? Math.round((Date.now() - earliestTopMs) / (1000 * 60 * 60))
+      : null;
+
+    async function fetchSpeciesImageUrl(species) {
+      try {
+        if (!species.commonName && !species.scientificName) {
+          return null;
+        }
+
+        // Try common name first
+        if (species.commonName) {
+          const searchUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(
+            species.commonName
+          )}`;
+
+          const response = await fetch(searchUrl, {
+            headers: {
+              "user-agent":
+                "byt-server/1.0 (https://github.com/your-repo/byt-server)"
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+
+            if (data.thumbnail && data.thumbnail.source) {
+              return data.thumbnail.source;
+            }
+          }
+        }
+
+        // Fall back to scientific name if common name didn't work
+        if (species.scientificName) {
+          const searchUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(
+            species.scientificName
+          )}`;
+
+          const response = await fetch(searchUrl, {
+            headers: {
+              "user-agent":
+                "byt-server/1.0 (https://github.com/your-repo/byt-server)"
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+
+            if (data.thumbnail && data.thumbnail.source) {
+              return data.thumbnail.source;
+            }
+          }
+        }
+
+        return null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    const imageUrls = await Promise.all(
+      top5Raw.map((s) => fetchSpeciesImageUrl(s))
+    );
+
+    const top5 = top5Raw.map((s, i) => ({
+      code: s.code,
+      commonName: s.commonName,
+      scientificName: s.scientificName,
+      count: s.observationCount,
+      imageUrl: imageUrls[i] || null
+    }));
+
+    res.json({
+      metadata: {
+        locationName,
+        lat,
+        lng,
+        distanceKm: dist,
+        sinceDateTime,
+        hoursSinceSinceDate
+      },
+      sightings: top5
+    });
+  } catch (error) {
+    console.error("Error fetching eBird data:", error);
+    res.status(500).json({
+      error: "Failed to fetch eBird data",
+      message: error.message
+    });
+  }
 });
 
 app.get("/api/this-or-that/random-pair", validateApiKey, async (req, res) => {
