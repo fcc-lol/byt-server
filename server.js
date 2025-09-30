@@ -235,9 +235,9 @@ app.get("/api/birds-sighted-nearby", validateApiKey, async (req, res) => {
       return b.latestObsDt - a.latestObsDt;
     });
     const totalSightings = data.length;
-    const top5Raw = aggregates.slice(0, 5);
+    const top4Raw = aggregates.slice(0, 4);
 
-    const earliestTopMs = top5Raw.reduce(
+    const earliestTopMs = top4Raw.reduce(
       (min, s) => Math.min(min, s.earliestObsDt),
       Number.POSITIVE_INFINITY
     );
@@ -309,10 +309,10 @@ app.get("/api/birds-sighted-nearby", validateApiKey, async (req, res) => {
     }
 
     const imageUrls = await Promise.all(
-      top5Raw.map((s) => fetchSpeciesImageUrl(s))
+      top4Raw.map((s) => fetchSpeciesImageUrl(s))
     );
 
-    const top5 = top5Raw.map((s, i) => ({
+    const top4 = top4Raw.map((s, i) => ({
       code: s.code,
       commonName: s.commonName,
       scientificName: s.scientificName,
@@ -329,7 +329,7 @@ app.get("/api/birds-sighted-nearby", validateApiKey, async (req, res) => {
         sinceDateTime,
         hoursSinceSinceDate
       },
-      sightings: top5
+      sightings: top4
     });
   } catch (error) {
     console.error("Error fetching eBird data:", error);
