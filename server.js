@@ -249,7 +249,10 @@ app.get("/api/birds-sighted-nearby", validateApiKey, async (req, res) => {
       : null;
 
     const hoursSinceSinceDate = Number.isFinite(earliestTopMs)
-      ? Math.round((Date.now() - earliestTopMs) / (1000 * 60 * 60))
+      ? Math.min(
+          24,
+          Math.round((Date.now() - earliestTopMs) / (1000 * 60 * 60))
+        )
       : null;
 
     async function fetchSpeciesImageUrl(species) {
