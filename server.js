@@ -103,35 +103,37 @@ const validateApiKey = (req, res, next) => {
   next();
 };
 
-app.get("/api/flights/:type", validateApiKey, async (req, res) => {
-  const airport = "KJFK";
+// Disabled to prevent costly API calls
 
-  try {
-    const response = await fetch(
-      `https://aeroapi.flightaware.com/aeroapi/airports/${airport}/flights/${req.params.type}`,
-      {
-        headers: {
-          "x-apikey": process.env.FLIGHTAWARE_API_KEY
-        }
-      }
-    );
+// app.get("/api/flights/:type", validateApiKey, async (req, res) => {
+//   const airport = "KJFK";
 
-    if (!response.ok) {
-      throw new Error(
-        `FlightAware API responded with status: ${response.status}`
-      );
-    }
+//   try {
+//     const response = await fetch(
+//       `https://aeroapi.flightaware.com/aeroapi/airports/${airport}/flights/${req.params.type}`,
+//       {
+//         headers: {
+//           "x-apikey": process.env.FLIGHTAWARE_API_KEY
+//         }
+//       }
+//     );
 
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error("Error fetching flight data:", error);
-    res.status(500).json({
-      error: "Failed to fetch flight data",
-      message: error.message
-    });
-  }
-});
+//     if (!response.ok) {
+//       throw new Error(
+//         `FlightAware API responded with status: ${response.status}`
+//       );
+//     }
+
+//     const data = await response.json();
+//     res.json(data);
+//   } catch (error) {
+//     console.error("Error fetching flight data:", error);
+//     res.status(500).json({
+//       error: "Failed to fetch flight data",
+//       message: error.message
+//     });
+//   }
+// });
 
 app.get("/api/birthdays", validateApiKey, async (req, res) => {
   const response = await fetch(
